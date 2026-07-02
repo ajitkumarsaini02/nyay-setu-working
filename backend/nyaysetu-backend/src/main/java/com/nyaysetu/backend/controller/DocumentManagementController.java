@@ -173,6 +173,17 @@ public class DocumentManagementController {
         return ResponseEntity.ok(documents);
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<Page<DocumentDto>> searchDocuments(
+            @RequestParam String keyword,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        Page<DocumentDto> documents =
+                documentManagementService.searchDocuments(keyword, pageable);
+
+        return ResponseEntity.ok(documents);
+    }
+
     @GetMapping("/user/cases")
     public ResponseEntity<Page<CaseSummaryDto>> getUserCases(
             Authentication authentication,

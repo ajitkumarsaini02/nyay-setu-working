@@ -77,6 +77,16 @@ public class DocumentManagementService {
                 .map(this::convertToDto);
     }
 
+    public Page<DocumentDto> searchDocuments(String keyword, Pageable pageable) {
+        return documentRepository
+                .findByFileNameContainingIgnoreCaseOrCategoryContainingIgnoreCase(
+                        keyword,
+                        keyword,
+                        pageable
+                )
+                .map(this::convertToDto);
+    }
+
     public List<DocumentDto> getCaseDocuments(UUID caseId) {
         return documentRepository.findCaseDocumentsWithDetails(caseId);
     }
