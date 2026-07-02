@@ -32,4 +32,9 @@ public interface DocumentRepository extends JpaRepository<DocumentEntity, UUID> 
         WHERE d.caseId = :caseId
     """)
     List<DocumentDto> findCaseDocumentsWithDetails(UUID caseId);
+        Page<DocumentEntity> findByFileNameContainingIgnoreCaseOrCategoryContainingIgnoreCase(
+            String fileName,
+            String category,
+            Pageable pageable
+    );
 }
