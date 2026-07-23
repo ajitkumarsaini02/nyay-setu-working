@@ -1,5 +1,7 @@
 package com.nyaysetu.backend.service;
  
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -257,7 +259,14 @@ public class VakilFriendService {
  
         String userLang = request.getLanguage() != null ? request.getLanguage() : "en";
         String userMessage = request.getMessage();
- 
+        
+        if (userMessage != null && userMessage.length() > 3000) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Query exceeds maximum allowed length."
+            );
+        }
+
         // 1. Handle Audio Input (ASR)
         if (request.getAudioData() != null && !request.getAudioData().isEmpty()) {
             userMessage = bhashiniService.speechToText(request.getAudioData(), userLang);

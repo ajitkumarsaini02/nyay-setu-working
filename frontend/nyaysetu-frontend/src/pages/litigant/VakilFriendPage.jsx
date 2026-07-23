@@ -13,9 +13,27 @@ import AvatarPanel from '../../components/avatar/AvatarPanel';
 import { useTranslation } from 'react-i18next';
 import useChatStore from '../../store/chatStore';
 
+const MAX_MESSAGE_LENGTH = 2000;
+
+const injectionPatterns = [
+  /ignore\s+(all\s+)?(previous|prior)\s+instructions/i,
+  /disregard\s+your\s+(system|initial)\s+prompt/i,
+  /you\s+are\s+now\s+a/i,
+  /act\s+as\s+if\s+you\s+are/i,
+];
+
+const encodeHTML = (text) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export default function VakilFriendChat() {
     const { t } = useTranslation('litigant');
     const [messages, setMessages] = useState([]);
+    const [showPromptWarning, setShowPromptWarning] = useState(false);
     const [inputMessage, setInputMessage] = useState('');
     const [sessionId, setSessionId] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -267,7 +285,11 @@ const {
         const textToSend = overrideText || inputMessage;
         if ((!textToSend.trim() && !audioData) || isLoading || isStarting) return;
 
-        const userMessage = textToSend.trim();
+        const userMessage = encodeHTML(textToSend.trim());
+
+        if (userMessage.length > MAX_MESSAGE_LENGTH) {
+            return;
+        }
         // Only clear the input message box if we aren't overriding it (standard UI flow)
         if (!overrideText) setInputMessage('');
 
@@ -1818,10 +1840,17 @@ const startDeepResearch = async (query) => {
                     </button>
                         <textarea
                             value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
+                            maxLength={MAX_MESSAGE_LENGTH}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                setInputMessage(value);
+
+                                setShowPromptWarning(
+                                    injectionPatterns.some(pattern => pattern.test(value))
+                                );
+                            }}
                             onKeyPress={handleKeyPress}
                             placeholder={t('vakilFriend.placeholder')}
-                            disabled={isLoading || isStarting}
                             rows={2}
                             style={{
                                 flex: 1,
@@ -1829,16 +1858,34 @@ const startDeepResearch = async (query) => {
                                 background: 'var(--bg-glass)',
                                 border: 'var(--border-glass)',
                                 borderRadius: '0.625rem',
-                                color: 'var(--text-main)',
-                                fontSize: '0.9rem',
-                                resize: 'none',
-                                outline: 'none',
-                                fontFamily: 'inherit',
-                                transition: 'all 0.2s'
                             }}
-                            onFocus={e => e.currentTarget.style.borderColor = 'var(--color-primary)'}
-                            onBlur={e => e.currentTarget.style.borderColor = 'var(--border-glass)'}
                         />
+
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                marginTop: "6px",
+                                fontSize: "12px",
+                                color: inputMessage.length > 1800 ? "#ef4444" : "#64748b"
+                            }}
+                        >
+                            <span>
+                                {inputMessage.length} / {MAX_MESSAGE_LENGTH}
+                            </span>
+                        </div>
+
+                        {showPromptWarning && (
+                            <div
+                                style={{
+                                    color: "#d97706",
+                                    marginTop: "5px",
+                                    fontSize: "13px"
+                                }}
+                            >
+                                ⚠️ Your message contains wording commonly used in prompt injection. The message will still be sent.
+                            </div>
+                        )}
 
                         {/* Mic Button */}
                         <button
@@ -1901,7 +1948,13 @@ const startDeepResearch = async (query) => {
 
                         <button
                             onClick={() => sendMessage()}
-                            disabled={!inputMessage.trim() || isLoading || isStarting || rateLimited}
+                            disabled={
+                                !inputMessage.trim() ||
+                                isLoading ||
+                                isStarting ||
+                                rateLimited ||
+                                inputMessage.length > MAX_MESSAGE_LENGTH
+                            }
                             style={{
                                 padding: '0.75rem 1rem',
                                 background: (!inputMessage.trim() || isLoading || isStarting || rateLimited)
@@ -1920,7 +1973,11 @@ const startDeepResearch = async (query) => {
                                 transition: 'all 0.2s'
                             }}
                         >
-                            {rateLimited ? <span style={{fontSize:'0.75rem', fontWeight:'700'}}>{cooldown}s</span> : <Send size={20} />}
+                            {rateLimited ? (
+                                <span>{cooldown}s</span>
+                            ) : (
+                                <Send size={20} />
+                            )}
                         </button>
                     </div>
                 </div>
