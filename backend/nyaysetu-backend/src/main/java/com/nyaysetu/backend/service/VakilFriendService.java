@@ -22,6 +22,8 @@ import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.*;
@@ -257,7 +259,14 @@ public class VakilFriendService {
  
         String userLang = request.getLanguage() != null ? request.getLanguage() : "en";
         String userMessage = request.getMessage();
- 
+        
+        if (userMessage != null && userMessage.length() > 3000) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Query exceeds maximum allowed length."
+            );
+        }
+
         // 1. Handle Audio Input (ASR)
         if (request.getAudioData() != null && !request.getAudioData().isEmpty()) {
             userMessage = bhashiniService.speechToText(request.getAudioData(), userLang);

@@ -13,8 +13,29 @@ import AvatarPanel from '../../components/avatar/AvatarPanel';
 import { useTranslation } from 'react-i18next';
 import useChatStore from '../../store/chatStore';
 
+const MAX_MESSAGE_LENGTH = 2000;
+
+const injectionPatterns = [
+  /ignore\s+(all|previous)\s+instructions/i,
+  /system\s*prompt/i,
+  /developer\s*mode/i,
+  /jailbreak/i,
+  /bypass/i,
+  /reveal\s+prompt/i,
+];
+
+const encodeHTML = (text) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+
 export default function VakilFriendChat() {
     const { t } = useTranslation('litigant');
+    const [showPromptWarning, setShowPromptWarning] = useState(false);
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState('');
     const [sessionId, setSessionId] = useState(null);
@@ -267,7 +288,11 @@ const {
         const textToSend = overrideText || inputMessage;
         if ((!textToSend.trim() && !audioData) || isLoading || isStarting) return;
 
-        const userMessage = textToSend.trim();
+        const userMessage = encodeHTML(textToSend.trim());
+
+        if (userMessage.length > MAX_MESSAGE_LENGTH) {
+            return;
+        }
         // Only clear the input message box if we aren't overriding it (standard UI flow)
         if (!overrideText) setInputMessage('');
 
@@ -1818,7 +1843,14 @@ const startDeepResearch = async (query) => {
                     </button>
                         <textarea
                             value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
+                            maxLength={MAX_MESSAGE_LENGTH}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                setInputMessage(value);
+                                setShowPromptWarning(
+                                    injectionPatterns.some(pattern => pattern.test(value))
+                                );
+                            }}
                             onKeyPress={handleKeyPress}
                             placeholder={t('vakilFriend.placeholder')}
                             disabled={isLoading || isStarting}
@@ -1839,11 +1871,48 @@ const startDeepResearch = async (query) => {
                             onFocus={e => e.currentTarget.style.borderColor = 'var(--color-primary)'}
                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border-glass)'}
                         />
+                        
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                marginTop: "6px",
+                                fontSize: "12px",
+                                color:
+                                    inputMessage.length > 1800
+                                        ? "#ef4444"
+                                        : "#64748b"
+                            }}
+                        >
+                            <span>
+                                {inputMessage.length} / {MAX_MESSAGE_LENGTH}
+                            </span>
+                        </div>
+
+                        {
+                            showPromptWarning && (
+                                <div
+                                    style={{
+                                        color: "#d97706",
+                                        fontSize: "13px",
+                                        marginTop: "5px"
+                                    }}
+                                >
+                                    ⚠️ Your message contains phrasing that may not produce useful legal
+                                    results. Please describe your legal question directly.
+                                </div>
+                            )
+                        }
 
                         {/* Mic Button */}
                         <button
                             onClick={isRecording ? stopRecording : startRecording}
-                            disabled={isLoading || isStarting}
+                            disabled={
+                            isLoading ||
+                            isStarting ||
+                            inputMessage.trim().length === 0 ||
+                            inputMessage.length > MAX_MESSAGE_LENGTH
+                        }
                             style={{
                                 padding: '0.75rem',
                                 background: isRecording ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-glass)',
@@ -1901,7 +1970,13 @@ const startDeepResearch = async (query) => {
 
                         <button
                             onClick={() => sendMessage()}
-                            disabled={!inputMessage.trim() || isLoading || isStarting || rateLimited}
+                            disabled={
+                                !inputMessage.trim() ||
+                                isLoading ||
+                                isStarting ||
+                                rateLimited ||
+                                inputMessage.length > MAX_MESSAGE_LENGTH
+                            }
                             style={{
                                 padding: '0.75rem 1rem',
                                 background: (!inputMessage.trim() || isLoading || isStarting || rateLimited)
